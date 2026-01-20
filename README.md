@@ -173,3 +173,6 @@ This library is designed for **browser environments only**. It uses:
 ## License
 
 MIT
+
+
+<!-- https://github.com/parallax/jsPDF/blob/v1.4.1/plugins/from_html.js -->

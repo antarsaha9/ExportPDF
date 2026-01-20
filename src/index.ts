@@ -1,23 +1,52 @@
-import { parseElement, TextNode } from './htmlParser';
-import { createPdfFromNodes, pdfToBlob } from './pdfGenerator';
+import { jsPDF } from 'jspdf';
+import { fromHTML } from './fromHTML';
+import { FromHTMLSettings, Margins } from './types';
 
 /**
  * Converts HTML DOM element to PDF Blob
+ * Modern API wrapper around fromHTML
  * @param element - DOM element to convert
+ * @param options - Optional settings
  * @returns Promise that resolves with PDF Blob
  */
-export async function htmlToPdf(element: HTMLElement): Promise<Blob> {
-  // Parse DOM element to extract text nodes
-  const nodes: TextNode[] = parseElement(element);
-
-  // Create PDF from text nodes (await for image loading)
-  const doc = await createPdfFromNodes(nodes);
-
-  // Convert PDF to Blob
-  return pdfToBlob(doc);
+export async function htmlToPdf(
+  element: HTMLElement,
+  options?: {
+    x?: number;
+    y?: number;
+    width?: number;
+    margins?: Margins;
+  }
+): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    try {
+      const doc = new jsPDF();
+      
+      fromHTML(
+        doc,
+        element,
+        options?.x,
+        options?.y,
+        {
+          width: options?.width,
+        },
+        () => {
+          const blob = doc.output('blob');
+          resolve(blob);
+        },
+        options?.margins
+      );
+    } catch (error) {
+      reject(error);
+    }
+  });
 }
 
-// Export types and utilities
-export type { TextNode } from './htmlParser';
-export { parseElement, extractAllText } from './htmlParser';
-export { createPdfFromNodes, pdfToBlob } from './pdfGenerator';
+// Export the main fromHTML API (ported from old plugin)
+export { fromHTML };
+
+// Export types
+export type { FromHTMLSettings, Margins, ElementHandlers, ElementHandler } from './types';
+
+// Export Renderer for advanced usage
+export { Renderer } from './renderer/Renderer';

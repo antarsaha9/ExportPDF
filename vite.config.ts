@@ -14,6 +14,6 @@ export default defineConfig({
     open: true,
   },
   build: {
-    outDir: 'dist-dev',
+    outDir: 'dist',
   },
 });

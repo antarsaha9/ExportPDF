@@ -1,15 +1,19 @@
 {
-  "extends": "./tsconfig.json",
   "compilerOptions": {
-    "module": "commonjs",
+    "target": "ES2020",
+    "module": "CommonJS",
     "lib": ["ES2020", "DOM"],
-    "jsx": "preserve",
-    "outDir": "./dist",
+
     "rootDir": "./src",
+    "outDir": "./dist",
+
     "declaration": true,
-    "declarationMap": true,
-    "sourceMap": true,
-    "noEmit": false
+    "declarationMap": false,
+    "sourceMap": false,
+
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist", "dev", "examples"]

@@ -111,6 +111,23 @@ export function getCSS(element: HTMLElement): ParsedCSS {
   css['padding-left'] = isBlock ? resolveUnitedNumber(computedCSSElement('padding-left')) || 0 : 0;
   css['padding-right'] = isBlock ? resolveUnitedNumber(computedCSSElement('padding-right')) || 0 : 0;
 
+  // Word spacing (used for justify)
+  css['word-spacing'] = 0;
+
+  // Width/height (use raw computed px values; 0 if 'auto' or empty)
+  // These are especially important for <img> sizing.
+  const widthStr = computedCSSElement('width') || '0px';
+  const heightStr = computedCSSElement('height') || '0px';
+  css.width = widthStr === 'auto' ? 0 : Math.max(0, parseFloat(widthStr) || 0);
+  css.height = heightStr === 'auto' ? 0 : Math.max(0, parseFloat(heightStr) || 0);
+
+  // Border + background (basic)
+  // Border width/color/style are useful for image borders and block decorations.
+  css['border-width'] = resolveUnitedNumber(computedCSSElement('border-top-width')) || 0;
+  css['border-color'] = computedCSSElement('border-top-color') || 'rgb(0,0,0)';
+  css['border-style'] = computedCSSElement('border-top-style') || 'none';
+  css['background-image'] = computedCSSElement('background-image') || 'none';
+
   // Page break
   css['page-break-before'] = computedCSSElement('page-break-before') || 'auto';
 

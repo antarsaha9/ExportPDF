@@ -92,7 +92,7 @@ function f3(number: number): string {
  * Returns PDF color string like "0.000 g" (gray) or "0.000 0.000 0.000 rg" (RGB)
  */
 export function getPdfColor(cssColor: string): string {
-  let r: number, g: number, b: number;
+  let r: any, g: any, b: any;
 
   // Handle rgb() format
   const rgbMatch = cssColor.match(/rgb\s*\(\s*(\d+),\s*(\d+),\s*(\d+\s*)\)/);

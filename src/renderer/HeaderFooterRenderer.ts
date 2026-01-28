@@ -41,7 +41,8 @@ export function checkForFooter(
 
   // Function to render footer on each page
   const renderFooter = function (pageInfo?: any) {
-    const pageNumber = pageInfo?.pageNumber || renderer.pdf.internal.getNumberOfPages();
+    const pageNumber =
+      pageInfo?.pageNumber || (renderer.pdf.internal as any).getNumberOfPages?.() || 1;
     const oldPosition = renderer.y;
     const pageHeight = renderer.pdf.internal.pageSize.getHeight();
     
@@ -84,7 +85,7 @@ export function checkForFooter(
       renderer.pdf.internal.events.subscribe(
         'htmlRenderingFinished',
         function () {
-          const totalPages = renderer.pdf.internal.getNumberOfPages();
+          const totalPages = (renderer.pdf.internal as any).getNumberOfPages?.() || 1;
           // Replace placeholder in all spans
           const allSpans = footer.getElementsByTagName('span');
           for (let j = 0; j < allSpans.length; j++) {

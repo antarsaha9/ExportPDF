@@ -50,7 +50,7 @@ export function splitFragmentsIntoLines(
       fontMetrics = fontMetricsCache[ff + fs];
 
       if (!fontMetrics) {
-        const font = pdf.internal.getFont(ff, fs);
+        const font = (pdf.internal as any).getFont(ff, fs);
         fontMetrics = font.metadata?.Unicode || font.metadata;
         fontMetricsCache[ff + fs] = fontMetrics;
       }
@@ -114,7 +114,7 @@ export function splitFragmentsIntoLines(
         const firstStyle = firstFragment[1];
         ff = firstStyle['font-family'];
         fs = firstStyle['font-style'];
-        fontMetrics = fontMetricsCache[ff + fs] || pdf.internal.getFont(ff, fs).metadata?.Unicode;
+        fontMetrics = fontMetricsCache[ff + fs] || (pdf.internal as any).getFont(ff, fs).metadata?.Unicode;
 
         fragmentSpecificMetrics = {
           widths: fontMetrics.widths,
@@ -180,7 +180,7 @@ export function renderTextFragment(
   // This function just renders the text at the given position
 
   // Get font
-  const font = pdf.internal.getFont(style['font-family'], style['font-style']);
+  const font = (pdf.internal as any).getFont(style['font-family'], style['font-style']);
 
   // Set text color
   const pdfTextColor = getPdfColor(style.color);
@@ -219,7 +219,7 @@ export function renderTextFragment(
       '/' + font.id,
       (defaultFontSize * style['font-size']).toFixed(2),
       'Tf',
-      '(' + pdf.internal.pdfEscape(text, {}) + ') Tj'
+      '(' + (pdf.internal as any).pdfEscape(text, {}) + ') Tj'
     );
   } else {
     pdf.setFont(style['font-family'], style['font-style']);

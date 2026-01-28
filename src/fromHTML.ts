@@ -7,6 +7,7 @@ import { renderImage } from './renderer/ImageRenderer';
 import { getNextListNumber, renderBulletPoint, resetListCounter } from './renderer/ListRenderer';
 import { checkForFooter } from './renderer/HeaderFooterRenderer';
 import { renderHR } from './renderer/ElementRenderer';
+import { renderBackgroundImage } from './renderer/BackgroundRenderer';
 
 /**
  * Nodes to skip during traversal
@@ -22,8 +23,9 @@ const SkipNode: Record<string, number> = {
 
 /**
  * Image cache (shared with ImageRenderer)
+ * Stores either an HTMLImageElement or a dataURL string (e.g. PNG).
  */
-const images: Record<string, HTMLImageElement> = {};
+const images: Record<string, HTMLImageElement | string> = {};
 
 /**
  * List counter for ordered lists
@@ -45,7 +47,7 @@ function elementHandledElsewhere(
   if (idHandlers) {
     if (typeof idHandlers === 'function') {
       isHandledElsewhere = idHandlers(element, renderer);
-    } else {
+    } else if (Array.isArray(idHandlers)) {
       for (let i = 0; i < idHandlers.length && !isHandledElsewhere; i++) {
         isHandledElsewhere = idHandlers[i](element, renderer);
       }
@@ -58,7 +60,7 @@ function elementHandledElsewhere(
     if (tagHandlers) {
       if (typeof tagHandlers === 'function') {
         isHandledElsewhere = tagHandlers(element, renderer);
-      } else {
+      } else if (Array.isArray(tagHandlers)) {
         for (let i = 0; i < tagHandlers.length && !isHandledElsewhere; i++) {
           isHandledElsewhere = tagHandlers[i](element, renderer);
         }
@@ -77,7 +79,7 @@ function elementHandledElsewhere(
       if (classHandlers) {
         if (typeof classHandlers === 'function') {
           isHandledElsewhere = classHandlers(element, renderer);
-        } else {
+        } else if (Array.isArray(classHandlers)) {
           for (
             let j = 0;
             j < classHandlers.length && !isHandledElsewhere;
@@ -122,6 +124,9 @@ export function drillForContent(
     // Apply CSS override to block style if provided
     const finalBlockStyle = cssOverride ? { ...fragmentCSS, ...cssOverride } : fragmentCSS;
     renderer.setBlockStyle(finalBlockStyle);
+
+    // Best-effort: render block background-image before children
+    renderBackgroundImage(element, renderer, images);
   }
 
   const px2pt = 0.264583 * 72 / 25.4;
@@ -163,15 +168,6 @@ export function drillForContent(
         drillForContent(header, renderer, elementHandlers);
         margins.top = renderer.y + 10;
         renderer.y += 10;
-      }
-
-      // Handle comments (for page breaks)
-      if (cn.nodeType === Node.COMMENT_NODE) {
-        const comment = cn as Comment;
-        if (comment.textContent && comment.textContent.indexOf('ADD_PAGE') !== -1) {
-          renderer.pdf.addPage();
-          renderer.y = (renderer.pdf as any).margins_doc.top;
-        }
       }
 
       // Handle element nodes
@@ -434,12 +430,32 @@ function loadImages(
           img.width = width || img.width || 0;
           img.height = height || img.height || 0;
         }
-        // Add to cache
+        // Add to cache (convert SVG data URLs to PNG for jsPDF compatibility)
         if (img.width + img.height) {
           const hash = (renderer.pdf as any).sHashCode
             ? (renderer.pdf as any).sHashCode(url)
             : url;
-          images[hash] = images[hash] || img;
+
+          const isSvgDataUrl = img.src.startsWith('data:image/svg+xml');
+          if (isSvgDataUrl) {
+            try {
+              const canvas = document.createElement('canvas');
+              canvas.width = img.width || (img as any).naturalWidth || 0;
+              canvas.height = img.height || (img as any).naturalHeight || 0;
+              const ctx = canvas.getContext('2d');
+              if (ctx && canvas.width > 0 && canvas.height > 0) {
+                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                const pngDataUrl = canvas.toDataURL('image/png');
+                images[hash] = images[hash] || pngDataUrl;
+              } else {
+                images[hash] = images[hash] || img;
+              }
+            } catch {
+              images[hash] = images[hash] || img;
+            }
+          } else {
+            images[hash] = images[hash] || img;
+          }
         }
       }
       if (!--x) {
@@ -451,6 +467,18 @@ function loadImages(
 
   for (let i = 0; i < l; i++) {
     loadImage(imgs[i].getAttribute('src'), imgs[i].width, imgs[i].height);
+  }
+
+  // Also preload background images (best-effort; only first url() per element)
+  const allEls = element.getElementsByTagName('*');
+  for (let i = 0; i < allEls.length; i++) {
+    const el = allEls[i] as HTMLElement;
+    const bg = getCSS(el)['background-image'];
+    if (!bg || bg === 'none') continue;
+    const m = bg.match(/url\(\s*(['"]?)(.*?)\1\s*\)/i);
+    if (m && m[2]) {
+      loadImage(m[2]);
+    }
   }
 
   if (!x) {

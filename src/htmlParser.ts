@@ -184,7 +184,7 @@ export function parseElement(element: HTMLElement): TextNode[] {
           }
         } else if (childTag === 'table') {
           // Handle table elements
-          const tableNode = extractTable(childElement);
+          const tableNode = extractTable(childElement as HTMLTableElement);
           if (tableNode) {
             children.push(tableNode);
             if (hasInlineChildren) {

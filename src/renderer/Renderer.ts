@@ -16,9 +16,39 @@ export class Renderer {
   public settings: RendererSettings;
   public watchFunctions: WatchFunction[] = [];
   
-  private paragraph: Paragraph;
+  private paragraph!: Paragraph;
   private lastTextColor: string = '';
   private priorMarginBottom: number = 0;
+
+  private static defaultCSS(): ParsedCSS {
+    return {
+      'font-family': 'times',
+      'font-style': 'normal',
+      'font-size': 1,
+      'line-height': 1,
+      'text-align': 'left',
+      display: 'block',
+      'margin-top': 0,
+      'margin-bottom': 0,
+      'margin-left': 0,
+      'margin-right': 0,
+      'padding-top': 0,
+      'padding-bottom': 0,
+      'padding-left': 0,
+      'padding-right': 0,
+      'word-spacing': 0,
+      width: 0,
+      height: 0,
+      'border-width': 0,
+      'border-color': 'rgb(0,0,0)',
+      'border-style': 'none',
+      'background-image': 'none',
+      'page-break-before': 'auto',
+      float: 'none',
+      clear: 'none',
+      color: 'rgb(0,0,0)',
+    };
+  }
 
   constructor(pdf: jsPDF, x: number, y: number, settings: RendererSettings) {
     this.pdf = pdf;
@@ -35,7 +65,7 @@ export class Renderer {
     this.paragraph = {
       text: [],
       style: [],
-      blockstyle: {},
+      blockstyle: Renderer.defaultCSS(),
     };
     
     // Save graphics state (q command)
@@ -151,7 +181,7 @@ export class Renderer {
     this.paragraph = {
       text: [],
       style: [],
-      blockstyle: {},
+      blockstyle: Renderer.defaultCSS(),
       priorblockstyle: priorBlockstyle,
     };
   }

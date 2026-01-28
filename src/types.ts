@@ -1,4 +1,5 @@
 import { jsPDF } from 'jspdf';
+import type { Renderer } from './renderer/Renderer';
 
 /**
  * CSS properties extracted from computed styles
@@ -18,6 +19,13 @@ export interface ParsedCSS {
   'padding-bottom': number;
   'padding-left': number;
   'padding-right': number;
+  'word-spacing': number; // PDF units (used for justify)
+  width: number; // px (computed width; 0 if 'auto')
+  height: number; // px (computed height; 0 if 'auto')
+  'border-width': number; // px
+  'border-color': string; // CSS color string
+  'border-style': string; // e.g. 'none', 'solid'
+  'background-image': string; // CSS background-image value (e.g. 'none' or 'url(...)')
   'page-break-before': string;
   'float': 'none' | 'left' | 'right';
   'clear': 'none' | 'both';
@@ -46,7 +54,7 @@ export interface Margins {
  * Element handlers for custom rendering
  */
 export interface ElementHandlers {
-  [key: string]: ElementHandler | ElementHandler[];
+  [key: string]: ElementHandler | ElementHandler[] | boolean | undefined;
   printHeaders?: boolean;
 }
 

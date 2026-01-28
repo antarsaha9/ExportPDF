@@ -49,16 +49,23 @@ export function resolveFont(cssFontFamily: string): string {
 
   const parts = cssFontFamily.split(',');
   let part = parts.shift();
+  let firstCustom: string | null = null;
 
   while (part) {
-    const name = FontNameDB[part.trim().toLowerCase()];
+    const trimmed = part.trim().replace(/^['"]|['"]$/g, '');
+    if (!firstCustom && trimmed) {
+      firstCustom = trimmed;
+    }
+    const name = FontNameDB[trimmed.toLowerCase()];
     if (name) {
       return name;
     }
     part = parts.shift();
   }
 
-  return 'times'; // Default fallback
+  // If the user has added a custom font to jsPDF (via addFont),
+  // its name can be used directly. Fall back to first family name if present.
+  return firstCustom || 'times';
 }
 
 /**

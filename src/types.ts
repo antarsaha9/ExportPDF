@@ -25,6 +25,7 @@ export interface ParsedCSS {
   'border-width': number; // px
   'border-color': string; // CSS color string
   'border-style': string; // e.g. 'none', 'solid'
+  'background-color'?: string; // CSS color string (undefined or absent = transparent)
   'background-image': string; // CSS background-image value (e.g. 'none' or 'url(...)')
   'page-break-before': string;
   'float': 'none' | 'left' | 'right';

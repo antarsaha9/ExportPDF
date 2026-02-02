@@ -126,6 +126,12 @@ export function getCSS(element: HTMLElement): ParsedCSS {
   css['border-width'] = resolveUnitedNumber(computedCSSElement('border-top-width')) || 0;
   css['border-color'] = computedCSSElement('border-top-color') || 'rgb(0,0,0)';
   css['border-style'] = computedCSSElement('border-top-style') || 'none';
+  // Background color
+  const bgColor = computedCSSElement('background-color');
+  if (bgColor && bgColor !== 'transparent' && bgColor !== 'rgba(0, 0, 0, 0)') {
+    css['background-color'] = bgColor;
+  }
+
   css['background-image'] = computedCSSElement('background-image') || 'none';
 
   // Page break

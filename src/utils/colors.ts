@@ -81,6 +81,18 @@ class RGBColor {
 }
 
 /**
+ * Parses a CSS color string into r, g, b values (0-255).
+ * Returns null if parsing fails.
+ */
+export function parseRGB(cssColor: string): { r: number; g: number; b: number } | null {
+  const color = new RGBColor(cssColor);
+  if (color.ok) {
+    return { r: color.r, g: color.g, b: color.b };
+  }
+  return null;
+}
+
+/**
  * Formats a number to 3 decimal places
  */
 function f3(number: number): string {

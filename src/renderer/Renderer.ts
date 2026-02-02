@@ -1,6 +1,6 @@
 import { jsPDF } from 'jspdf';
 import { ParsedCSS, Paragraph, WatchFunction, RendererSettings } from '../types';
-import { getPdfColor } from '../utils/colors';
+import { getPdfColor, parseRGB } from '../utils/colors';
 import { purgeWhitespace } from '../utils/whitespace';
 import { splitFragmentsIntoLines, renderTextFragment } from './TextRenderer';
 import { getCSS } from '../parser/cssParser';
@@ -244,7 +244,41 @@ export class Renderer {
 
     // Start text rendering
     this.y += paragraphspacing_before;
-    
+
+    // Draw background color rectangle if set
+    // CSS background covers padding area but not margin area.
+    // At this point this.y already includes margin + padding (from paragraphspacing_before),
+    // so we offset back by padding-top to start the background at the padding edge.
+    if (blockstyle['background-color']) {
+      const bgRGB = parseRGB(blockstyle['background-color']);
+      if (bgRGB) {
+        const padTop = (blockstyle['padding-top'] || 0) * fontToUnitRatio;
+        const padBottom = (blockstyle['padding-bottom'] || 0) * fontToUnitRatio;
+        const padLeft = (blockstyle['padding-left'] || 0) * fontToUnitRatio;
+        const padRight = (blockstyle['padding-right'] || 0) * fontToUnitRatio;
+
+        // Calculate total content height from all lines
+        let totalHeight = 0;
+        for (const ln of lines) {
+          let maxLH = 0;
+          for (const frag of ln) {
+            if (frag[0].trim()) {
+              maxLH = Math.max(maxLH, frag[1]['line-height'], frag[1]['font-size']);
+            }
+          }
+          totalHeight += maxLH * fontToUnitRatio;
+        }
+
+        const rectX = this.x - padLeft;
+        const rectY = this.y - padTop;
+        const rectWidth = this.settings.width + padLeft + padRight;
+        const rectHeight = totalHeight + padTop + padBottom;
+
+        this.pdf.setFillColor(bgRGB.r, bgRGB.g, bgRGB.b);
+        this.pdf.rect(rectX, rectY, rectWidth, rectHeight, 'F');
+      }
+    }
+
     if (internal.write) {
       // Format coordinates for PDF stream (using f2 for 2 decimal places)
       // Old plugin used internal.getCoordinateString, but we'll format directly

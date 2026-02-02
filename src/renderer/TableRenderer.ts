@@ -28,39 +28,89 @@ interface TableData {
 export function tableToJson(table: HTMLTableElement, renderer: Renderer): TableData {
   const data: Array<Record<string, string>> = [];
   const headers: TableHeader[] = [];
-  
+
   if (table.rows.length === 0) {
     return { rows: data, headers: headers };
   }
 
   const tableWidth = table.clientWidth || renderer.pdf.internal.pageSize.getWidth();
   const pageWidth = renderer.pdf.internal.pageSize.getWidth();
-  
-  // Extract headers from first row
-  const firstRow = table.rows[0];
-  const headerCells = firstRow.cells;
-  
-  for (let i = 0; i < headerCells.length; i++) {
-    const cell = headerCells[i];
-    headers[i] = {
-      name: normalizeUnicode(cell.textContent || '').toLowerCase().replace(/\s+/g, '') || `col${i}`,
-      prompt: normalizeUnicode(cell.textContent || '').replace(/\r?\n/g, ''),
-      width: tableWidth > 0 
-        ? (cell.clientWidth / tableWidth) * pageWidth
-        : pageWidth / headerCells.length
-    };
+
+  // Determine if the table has a real header row:
+  // 1. Has a <thead> element, or
+  // 2. First row contains <th> cells
+  const thead = table.tHead;
+  let headerRow: HTMLTableRowElement | null = null;
+  let dataStartIndex = 0;
+
+  if (thead && thead.rows.length > 0) {
+    headerRow = thead.rows[0];
+    // dataStartIndex stays 0 — tbody rows are accessed separately below
+  } else {
+    const firstRow = table.rows[0];
+    const hasThCells = firstRow.cells.length > 0 && firstRow.cells[0].tagName === 'TH';
+    if (hasThCells) {
+      headerRow = firstRow;
+      dataStartIndex = 1;
+    }
   }
 
-  // Extract data rows (skip first row if it was used as header)
-  for (let i = 1; i < table.rows.length; i++) {
-    const tableRow = table.rows[i];
+  // Build headers from header row, or synthesize from first data row's column count
+  if (headerRow) {
+    for (let i = 0; i < headerRow.cells.length; i++) {
+      const cell = headerRow.cells[i];
+      headers[i] = {
+        name: normalizeUnicode(cell.textContent || '').toLowerCase().replace(/\s+/g, '') || `col${i}`,
+        prompt: normalizeUnicode(cell.textContent || '').replace(/\r?\n/g, ''),
+        width: tableWidth > 0
+          ? (cell.clientWidth / tableWidth) * pageWidth
+          : pageWidth / headerRow.cells.length
+      };
+    }
+  } else {
+    // No header row — synthesize column keys from first row's cell count
+    const firstRow = table.rows[0];
+    for (let i = 0; i < firstRow.cells.length; i++) {
+      const cell = firstRow.cells[i];
+      headers[i] = {
+        name: `col${i}`,
+        prompt: '', // empty prompt = no visible header text
+        width: tableWidth > 0
+          ? (cell.clientWidth / tableWidth) * pageWidth
+          : pageWidth / firstRow.cells.length
+      };
+    }
+    dataStartIndex = 0; // all rows are data
+  }
+
+  // Extract data rows
+  // If we used <thead>, iterate tbody rows; otherwise iterate table.rows from dataStartIndex
+  const dataRows: HTMLTableRowElement[] = [];
+  if (thead) {
+    const bodies = table.tBodies;
+    for (let b = 0; b < bodies.length; b++) {
+      for (let r = 0; r < bodies[b].rows.length; r++) {
+        dataRows.push(bodies[b].rows[r]);
+      }
+    }
+    // Also include rows not in thead/tbody (direct children of table)
+    if (dataRows.length === 0) {
+      for (let i = 1; i < table.rows.length; i++) {
+        dataRows.push(table.rows[i]);
+      }
+    }
+  } else {
+    for (let i = dataStartIndex; i < table.rows.length; i++) {
+      dataRows.push(table.rows[i]);
+    }
+  }
+
+  for (const tableRow of dataRows) {
     const rowData: Record<string, string> = {};
-    
     for (let j = 0; j < tableRow.cells.length && j < headers.length; j++) {
       const cell = tableRow.cells[j];
       rowData[headers[j].name] = normalizeUnicode(cell.textContent || '').replace(/\r?\n/g, '');
     }
-    
     data.push(rowData);
   }
 
@@ -164,8 +214,9 @@ export function renderTable(
     return;
   }
 
-  // Render header
-  if (tableData.headers.length > 0) {
+  // Render header (only if headers have visible text)
+  const hasVisibleHeaders = tableData.headers.some(h => h.prompt.trim() !== '');
+  if (hasVisibleHeaders && tableData.headers.length > 0) {
     renderer.pdf.setFontSize(10);
     renderer.pdf.setFont('helvetica', 'bold');
     
@@ -226,8 +277,8 @@ export function renderTable(
       // Reset X position on new page to left margin
       currentX = marginLeft;
       
-      // Redraw header on new page if printHeaders is true
-      if (elementHandlers.printHeaders !== false && tableData.headers.length > 0) {
+      // Redraw header on new page if printHeaders is true and headers are visible
+      if (elementHandlers.printHeaders !== false && hasVisibleHeaders && tableData.headers.length > 0) {
         renderer.pdf.setFontSize(10);
         renderer.pdf.setFont('helvetica', 'bold');
         renderer.pdf.setTextColor(0, 0, 0); // Black text

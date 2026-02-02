@@ -60,6 +60,45 @@ const UNICODE_MAP: Record<string, string> = {
   '\u2035': "'",  // reversed prime
   '\u2036': '"',  // reversed double prime
 
+  // Copyright, trademark, registered
+  '\u00A9': '(c)',  // ©
+  '\u00AE': '(R)',  // ®
+  '\u2122': '(TM)', // ™
+
+  // Currency
+  '\u20AC': 'EUR',  // €
+  '\u00A3': 'GBP',  // £
+  '\u00A5': 'JPY',  // ¥
+
+  // Superscript digits
+  '\u00B2': '2',    // ²
+  '\u00B3': '3',    // ³
+  '\u00B9': '1',    // ¹
+
+  // Math symbols
+  '\u03C0': 'pi',   // π
+  '\u2248': '~=',   // ≈
+  '\u2211': 'sum',  // ∑
+  '\u222B': 'int',  // ∫
+  '\u221A': 'sqrt', // √
+  '\u2260': '!=',   // ≠
+  '\u2264': '<=',   // ≤
+  '\u2265': '>=',   // ≥
+  '\u00B1': '+/-',  // ±
+  '\u00D7': 'x',    // ×
+  '\u00F7': '/',    // ÷
+  '\u221E': 'inf',  // ∞
+  '\u2202': 'd',    // ∂
+
+  // Common emoji → text fallbacks
+  '\u2705': '[check]',  // ✅
+  '\u274C': '[x]',      // ❌
+  '\u26A0': '[!]',      // ⚠
+  '\uFE0F': '',         // variation selector-16 (emoji modifier, remove)
+  '\u{1F600}': ':)',     // 😀
+  '\u{1F389}': '[party]',// 🎉
+  '\u{1F4C4}': '[doc]', // 📄
+
   // Zero-width and invisible characters (remove entirely)
   '\u200B': '',   // zero-width space
   '\u200C': '',   // zero-width non-joiner
@@ -68,10 +107,21 @@ const UNICODE_MAP: Record<string, string> = {
 };
 
 // Build regex from map keys
-const UNICODE_REGEX = new RegExp(
-  '[' + Object.keys(UNICODE_MAP).join('') + ']',
-  'g'
-);
+// Separate single BMP characters (can go in character class) from multi-char/astral sequences (need alternation)
+const bmpChars: string[] = [];
+const astralSequences: string[] = [];
+for (const key of Object.keys(UNICODE_MAP)) {
+  if (key.length === 1) {
+    bmpChars.push(key);
+  } else {
+    // Astral plane characters (surrogate pairs) or multi-char keys
+    astralSequences.push(key);
+  }
+}
+const bmpPart = bmpChars.length > 0 ? '[' + bmpChars.join('') + ']' : '';
+const astralPart = astralSequences.length > 0 ? astralSequences.join('|') : '';
+const pattern = [bmpPart, astralPart].filter(Boolean).join('|');
+const UNICODE_REGEX = new RegExp(pattern, 'gu');
 
 /**
  * Replaces problematic Unicode characters with PDF-safe ASCII equivalents.

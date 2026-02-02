@@ -270,6 +270,7 @@ export class Renderer {
 
     let currentIndent = 0;
     let fontSize = 0;
+    let isFirstLine = true;
 
     // Render each line
     while (lines.length) {
@@ -399,6 +400,12 @@ export class Renderer {
       // Move to next line
       this.y += maxLineHeight * fontToUnitRatio;
 
+      // Fire bullet/list callback on the first line
+      if (isFirstLine && cb && typeof cb === 'function') {
+        cb(this.x - 9, this.y - fontSize / 2);
+        isFirstLine = false;
+      }
+
       // Check if watch functions were executed (for floating elements)
       if (
         line[0] &&
@@ -444,11 +451,6 @@ export class Renderer {
           this.pdf.saveGraphicsState();
         }
       }
-    }
-
-    // Callback
-    if (cb && typeof cb === 'function') {
-      cb(this.x - 9, this.y - fontSize / 2);
     }
 
     // End text rendering

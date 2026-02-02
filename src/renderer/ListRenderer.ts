@@ -2,15 +2,29 @@ import { Renderer } from './Renderer';
 import { getCSS } from '../parser/cssParser';
 
 /**
- * List counter (shared across list rendering)
+ * Stack of list counters to support nested ordered lists.
+ * Each entry is the current count for that nesting level.
  */
+const listCountStack: number[] = [];
 let listCount = 1;
 
 /**
- * Resets list counter (call before rendering a new ordered list)
+ * Resets list counter for a new ordered list.
+ * Pushes the current counter onto the stack so it can be restored
+ * when the nested list finishes.
  */
 export function resetListCounter(): void {
+  listCountStack.push(listCount);
   listCount = 1;
+}
+
+/**
+ * Restores the parent list's counter after a nested ordered list finishes.
+ */
+export function restoreListCounter(): void {
+  if (listCountStack.length > 0) {
+    listCount = listCountStack.pop()!;
+  }
 }
 
 /**

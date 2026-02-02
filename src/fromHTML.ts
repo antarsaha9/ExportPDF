@@ -4,7 +4,7 @@ import { Renderer } from './renderer/Renderer';
 import { getCSS } from './parser/cssParser';
 import { renderTable } from './renderer/TableRenderer';
 import { renderImage } from './renderer/ImageRenderer';
-import { getNextListNumber, renderBulletPoint, resetListCounter } from './renderer/ListRenderer';
+import { getNextListNumber, renderBulletPoint, resetListCounter, restoreListCounter } from './renderer/ListRenderer';
 import { checkForFooter } from './renderer/HeaderFooterRenderer';
 import { renderHR } from './renderer/ElementRenderer';
 import { renderBackgroundImage } from './renderer/BackgroundRenderer';
@@ -193,14 +193,17 @@ export function drillForContent(
         // Handle list elements
         else if (nodeName === 'OL' || nodeName === 'UL') {
           if (!elementHandledElsewhere(elementNode, renderer, elementHandlers)) {
-            // Reset counter for ordered lists
+            // Reset counter for ordered lists (saves parent counter on stack)
             if (nodeName === 'OL') {
               resetListCounter();
             }
             // Process list items - the list structure will be handled by drillForContent
             // Preserve parent callback if this is a nested list (don't overwrite parent LI's bullet callback)
             drillForContent(elementNode, renderer, elementHandlers, undefined, blockCallback);
-            renderer.y += 10; // Add spacing after list
+            // Restore parent counter for ordered lists
+            if (nodeName === 'OL') {
+              restoreListCounter();
+            }
           }
         }
         // Handle LI elements
@@ -357,15 +360,27 @@ export function drillForContent(
       
       let value = normalizeUnicode(textNode.nodeValue || '');
 
-      // Handle list items
+      // Handle list items - only add number prefix if text has real content
       if (
+        value.trim() &&
         textNode.parentNode &&
         (textNode.parentNode as HTMLElement).nodeName === 'LI'
       ) {
         const parent = textNode.parentNode as HTMLElement;
         if (parent.parentNode && (parent.parentNode as HTMLElement).nodeName === 'OL') {
-          // Add number prefix for ordered lists
-          value = getNextListNumber() + '. ' + value;
+          // Only number the first text node in the LI (avoid numbering text after nested lists)
+          let isFirstTextNode = true;
+          for (let j = 0; j < parent.childNodes.length; j++) {
+            const sibling = parent.childNodes[j];
+            if (sibling === textNode) break;
+            if (sibling.nodeType === Node.TEXT_NODE && (sibling.nodeValue || '').trim()) {
+              isFirstTextNode = false;
+              break;
+            }
+          }
+          if (isFirstTextNode) {
+            value = getNextListNumber() + '. ' + value;
+          }
         }
         // For unordered lists, bullet callback is set when processing LI element
       }

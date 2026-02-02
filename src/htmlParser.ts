@@ -1,4 +1,5 @@
 import { ParsedCSS, parseComputedCSS } from './cssParser';
+import { normalizeUnicode } from './utils/unicode';
 
 export interface TextNode {
   tag: string;
@@ -51,7 +52,7 @@ export function parseElement(element: HTMLElement): TextNode[] {
       if (headerRow) {
         const cells = headerRow.querySelectorAll('th, td');
         cells.forEach(cell => {
-          headers.push(cell.textContent?.trim() || '');
+          headers.push(normalizeUnicode(cell.textContent || '').trim());
         });
       }
     } else {
@@ -60,7 +61,7 @@ export function parseElement(element: HTMLElement): TextNode[] {
       if (firstRow) {
         const cells = firstRow.querySelectorAll('th, td');
         cells.forEach(cell => {
-          headers.push(cell.textContent?.trim() || '');
+          headers.push(normalizeUnicode(cell.textContent || '').trim());
         });
       }
     }
@@ -72,7 +73,7 @@ export function parseElement(element: HTMLElement): TextNode[] {
       tbody.querySelectorAll('tr').forEach(row => {
         const rowData: string[] = [];
         row.querySelectorAll('td, th').forEach(cell => {
-          rowData.push(cell.textContent?.trim() || '');
+          rowData.push(normalizeUnicode(cell.textContent || '').trim());
         });
         if (rowData.length > 0) {
           rows.push(rowData);
@@ -85,7 +86,7 @@ export function parseElement(element: HTMLElement): TextNode[] {
       for (let i = startIndex; i < allRows.length; i++) {
         const rowData: string[] = [];
         allRows[i].querySelectorAll('td, th').forEach(cell => {
-          rowData.push(cell.textContent?.trim() || '');
+          rowData.push(normalizeUnicode(cell.textContent || '').trim());
         });
         if (rowData.length > 0) {
           rows.push(rowData);
@@ -221,7 +222,7 @@ export function parseElement(element: HTMLElement): TextNode[] {
         // Collect direct text nodes
         // For ordered segments, preserve the text as-is to maintain spacing
         // For directTextParts, trim for normal processing
-        const rawText = node.textContent || '';
+        const rawText = normalizeUnicode(node.textContent || '');
         const trimmedText = isInlineContext ? rawText : rawText.trim();
         
         if (trimmedText && trimmedText.length > 0) {
@@ -308,7 +309,7 @@ export function parseElement(element: HTMLElement): TextNode[] {
   if (result.length === 0) {
     const directText = Array.from(element.childNodes)
       .filter(node => node.nodeType === Node.TEXT_NODE)
-      .map(node => node.textContent?.trim())
+      .map(node => normalizeUnicode(node.textContent || '').trim())
       .filter(text => text && text.length > 0)
       .join(' ');
     

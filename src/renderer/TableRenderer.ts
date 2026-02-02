@@ -2,6 +2,7 @@ import { jsPDF } from 'jspdf';
 import { Renderer } from './Renderer';
 import { ParsedCSS } from '../types';
 import { getCSS } from '../parser/cssParser';
+import { normalizeUnicode } from '../utils/unicode';
 
 /**
  * Table header structure
@@ -42,8 +43,8 @@ export function tableToJson(table: HTMLTableElement, renderer: Renderer): TableD
   for (let i = 0; i < headerCells.length; i++) {
     const cell = headerCells[i];
     headers[i] = {
-      name: cell.textContent?.toLowerCase().replace(/\s+/g, '') || `col${i}`,
-      prompt: cell.textContent?.replace(/\r?\n/g, '') || '',
+      name: normalizeUnicode(cell.textContent || '').toLowerCase().replace(/\s+/g, '') || `col${i}`,
+      prompt: normalizeUnicode(cell.textContent || '').replace(/\r?\n/g, ''),
       width: tableWidth > 0 
         ? (cell.clientWidth / tableWidth) * pageWidth
         : pageWidth / headerCells.length
@@ -57,7 +58,7 @@ export function tableToJson(table: HTMLTableElement, renderer: Renderer): TableD
     
     for (let j = 0; j < tableRow.cells.length && j < headers.length; j++) {
       const cell = tableRow.cells[j];
-      rowData[headers[j].name] = cell.textContent?.replace(/\r?\n/g, '') || '';
+      rowData[headers[j].name] = normalizeUnicode(cell.textContent || '').replace(/\r?\n/g, '');
     }
     
     data.push(rowData);

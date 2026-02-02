@@ -8,6 +8,7 @@ import { getNextListNumber, renderBulletPoint, resetListCounter } from './render
 import { checkForFooter } from './renderer/HeaderFooterRenderer';
 import { renderHR } from './renderer/ElementRenderer';
 import { renderBackgroundImage } from './renderer/BackgroundRenderer';
+import { normalizeUnicode } from './utils/unicode';
 
 /**
  * Nodes to skip during traversal
@@ -354,7 +355,7 @@ export function drillForContent(
         continue;
       }
       
-      let value = textNode.nodeValue || '';
+      let value = normalizeUnicode(textNode.nodeValue || '');
 
       // Handle list items
       if (
@@ -556,7 +557,12 @@ function process(
     checkForFooter(domElement, r, elementHandlers);
     
     // Render main content
-    drillForContent(domElement, r, elementHandlers);
+    try {
+      drillForContent(domElement, r, elementHandlers);
+      
+    } catch (error) {
+      console.error('Error during HTML rendering:', error);
+    }
     
     // Publish rendering finished event
     pdf.internal.events.publish('htmlRenderingFinished');

@@ -36,7 +36,7 @@ export function splitFragmentsIntoLines(
   let fragmentChopped: string[];
   let style: ParsedCSS | undefined;
 
-  const line: TextLine = [];
+  let line: TextLine = [];
   const lines: TextLine[] = [line];
   let currentLineLength = 0;
 
@@ -69,8 +69,8 @@ export function splitFragmentsIntoLines(
 
       if (fragment === '\u2028') {
         // Line break
-        const newLine: TextLine = [];
-        lines.push(newLine);
+        line = [];
+        lines.push(line);
         currentLineLength = 0;
       } else if (currentLineLength + fragmentLength > maxLineLength) {
         // Need to split fragment
@@ -81,11 +81,11 @@ export function splitFragmentsIntoLines(
         );
         line.push([fragmentChopped.shift()!, style!]);
         while (fragmentChopped.length) {
-          const newLine: TextLine = [[fragmentChopped.shift()!, style!]];
-          lines.push(newLine);
+          line = [[fragmentChopped.shift()!, style!]];
+          lines.push(line);
         }
-        if (lines[lines.length - 1].length > 0) {
-          const lastFragment = lines[lines.length - 1][0][0];
+        if (line.length > 0) {
+          const lastFragment = line[0][0];
           currentLineLength =
             (pdf.getStringUnitWidth(lastFragment, fragmentSpecificMetrics) *
               fragmentSpecificMetrics.fontSize) /

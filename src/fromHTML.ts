@@ -9,6 +9,7 @@ import { checkForFooter } from './renderer/HeaderFooterRenderer';
 import { renderHR } from './renderer/ElementRenderer';
 import { renderBackgroundImage } from './renderer/BackgroundRenderer';
 import { normalizeUnicode } from './utils/unicode';
+import { parseRGB } from './utils/colors';
 
 /**
  * Nodes to skip during traversal
@@ -291,24 +292,58 @@ export function drillForContent(
         // Handle PRE elements (preformatted text with monospace)
         else if (nodeName === 'PRE') {
           if (!elementHandledElsewhere(elementNode, renderer, elementHandlers)) {
+            // Flush any pending paragraph before rendering pre block
+            renderer.setBlockBoundary();
+
             const css = getCSS(elementNode);
             const fontToUnitRatio = 12 / renderer.pdf.internal.scaleFactor;
             const marginTop = (css['margin-top'] || 0) * fontToUnitRatio;
             const marginBottom = (css['margin-bottom'] || 0) * fontToUnitRatio;
-            const padding = (css['padding-left'] || css['padding-top'] || 10) * fontToUnitRatio;
-            
+            const padding = (css['padding-left'] || css['padding-top'] || 0) * fontToUnitRatio;
+
             renderer.y += marginTop;
-            
-            // Add padding
-            const tempX = renderer.x;
-            renderer.x += padding;
-            
-            // Force monospace font by passing CSS override
-            drillForContent(elementNode, renderer, elementHandlers, { 'font-family': 'courier' });
-            
-            // Reset X position
-            renderer.x = tempX;
-            renderer.y += marginBottom;
+
+            // Render preformatted text directly, bypassing the paragraph pipeline
+            const rawText = normalizeUnicode(elementNode.textContent || '');
+            const preLines = rawText.split('\n');
+
+            // Strip empty first/last lines (artifact of <pre>\n...\n</pre>)
+            if (preLines.length > 0 && preLines[0].trim() === '') preLines.shift();
+            if (preLines.length > 0 && preLines[preLines.length - 1].trim() === '') preLines.pop();
+
+            const fontSize = (css['font-size'] || 1) * 12;
+            const lineHeight = Math.max(css['line-height'] || 1, css['font-size'] || 1) * fontToUnitRatio;
+            const pageHeight = renderer.pdf.internal.pageSize.getHeight();
+            const margins = (renderer.pdf as any).margins_doc || { top: 0, bottom: 0 };
+
+            renderer.pdf.setFont('courier', 'normal');
+            renderer.pdf.setFontSize(fontSize);
+            renderer.pdf.setTextColor(0, 0, 0);
+
+            // Draw background if set
+            if (css['background-color']) {
+              const bgRGB = parseRGB(css['background-color']);
+              if (bgRGB) {
+                const bgHeight = preLines.length * lineHeight + padding * 2;
+                renderer.pdf.setFillColor(bgRGB.r, bgRGB.g, bgRGB.b);
+                renderer.pdf.rect(renderer.x, renderer.y, renderer.settings.width, bgHeight, 'F');
+              }
+            }
+
+            renderer.y += padding;
+
+            for (const line of preLines) {
+              // Page break check
+              if (renderer.y + lineHeight > pageHeight - margins.bottom) {
+                renderer.pdf.addPage();
+                renderer.y = margins.top || 0;
+              }
+
+              renderer.y += lineHeight;
+              renderer.pdf.text(line, renderer.x + padding, renderer.y);
+            }
+
+            renderer.y += padding + marginBottom;
           }
         }
         // Handle CODE elements (inline code with monospace)

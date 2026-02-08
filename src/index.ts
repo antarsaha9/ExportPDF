@@ -2,6 +2,9 @@ import { jsPDF } from 'jspdf';
 import { fromHTML } from './fromHTML';
 import { FromHTMLSettings, Margins } from './types';
 
+/** Default page margin in jsPDF units (mm by default) */
+const DEFAULT_MARGIN = 10;
+
 /**
  * Converts HTML DOM element to PDF Blob
  * Modern API wrapper around fromHTML
@@ -12,29 +15,65 @@ import { FromHTMLSettings, Margins } from './types';
 export async function htmlToPdf(
   element: HTMLElement,
   options?: {
+    /** Horizontal start position (overrides margin.left) */
     x?: number;
+    /** Vertical start position (overrides margin.top) */
     y?: number;
+    /** Content width (auto-calculated from margins if omitted) */
     width?: number;
+    /**
+     * Page margin. A single number applies to all sides.
+     * An object allows per-side control; omitted sides default to `DEFAULT_MARGIN` (10).
+     */
+    margin?: number | { top?: number; bottom?: number; left?: number; right?: number };
+    /** @deprecated Use `margin` instead. Kept for backward compatibility. */
     margins?: Margins;
   }
 ): Promise<Blob> {
   return new Promise((resolve, reject) => {
     try {
       const doc = new jsPDF();
-      
+
+      // Resolve margins: options.margin > options.margins > defaults
+      let top = DEFAULT_MARGIN;
+      let bottom = DEFAULT_MARGIN;
+      let left = DEFAULT_MARGIN;
+      let right = DEFAULT_MARGIN;
+
+      if (options?.margin !== undefined) {
+        if (typeof options.margin === 'number') {
+          top = bottom = left = right = options.margin;
+        } else {
+          top = options.margin.top ?? DEFAULT_MARGIN;
+          bottom = options.margin.bottom ?? DEFAULT_MARGIN;
+          left = options.margin.left ?? DEFAULT_MARGIN;
+          right = options.margin.right ?? DEFAULT_MARGIN;
+        }
+      } else if (options?.margins) {
+        top = options.margins.top;
+        bottom = options.margins.bottom;
+        left = options.margins.left ?? DEFAULT_MARGIN;
+        right = options.margins.right ?? DEFAULT_MARGIN;
+      }
+
+      const x = options?.x ?? left;
+      const y = options?.y ?? top;
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const width = options?.width ?? pageWidth - left - right;
+
       fromHTML(
         doc,
         element,
-        options?.x,
-        options?.y,
+        x,
+        y,
         {
-          width: options?.width,
+          width,
         },
         () => {
           const blob = doc.output('blob');
           resolve(blob);
         },
-        options?.margins
+        { top, bottom, left, right }
       );
     } catch (error) {
       reject(error);

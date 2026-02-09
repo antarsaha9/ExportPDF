@@ -52,6 +52,18 @@ export interface Margins {
 }
 
 /**
+ * Custom font definition for embedding in PDF
+ */
+export interface FontDefinition {
+  /** CSS font-family name to match (e.g., 'Roboto', 'Open Sans') */
+  family: string;
+  /** Base64-encoded .ttf font data */
+  src: string;
+  /** Font style variant. Default: 'normal' */
+  style?: 'normal' | 'bold' | 'italic' | 'bolditalic';
+}
+
+/**
  * Element handlers for custom rendering
  */
 export interface ElementHandlers {

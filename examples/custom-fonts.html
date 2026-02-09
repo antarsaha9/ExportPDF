@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Custom Fonts - HTML to PDF Example</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        #content {
+            background: #f5f5f5;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        #content .roboto {
+            font-family: 'Roboto', sans-serif;
+        }
+        #content .roboto-bold {
+            font-family: 'Roboto', sans-serif;
+            font-weight: bold;
+        }
+        button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-right: 10px;
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+        button:disabled {
+            background-color: #95a5a6;
+            cursor: not-allowed;
+        }
+        #status {
+            margin-top: 12px;
+            color: #555;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+    <h1>Custom Fonts Example</h1>
+    <p>This example loads the <strong>Roboto</strong> font from Google Fonts and embeds it into the PDF.</p>
+
+    <div id="content">
+        <h2 class="roboto">Heading in Roboto</h2>
+        <p class="roboto">This paragraph uses the Roboto font (regular weight). The custom font is fetched at runtime, converted to base64, and passed to <code>htmlToPdf()</code> via the <code>fonts</code> option.</p>
+        <p class="roboto-bold">This paragraph uses Roboto Bold.</p>
+        <p>This paragraph has no explicit font, so it falls back to the default PDF font.</p>
+    </div>
+
+    <button id="generateBtn" onclick="generatePdf()" disabled>Loading font...</button>
+    <div id="status">Fetching Roboto font from Google Fonts...</div>
+
+    <script type="module">
+        import { htmlToPdf } from '../dist/index.js';
+
+        // Helper: fetch a font file and return its base64 representation
+        async function fetchFontAsBase64(url) {
+            const response = await fetch(url);
+            const buffer = await response.arrayBuffer();
+            const bytes = new Uint8Array(buffer);
+            let binary = '';
+            for (let i = 0; i < bytes.length; i++) {
+                binary += String.fromCharCode(bytes[i]);
+            }
+            return btoa(binary);
+        }
+
+        // Google Fonts direct .ttf URLs for Roboto
+        const ROBOTO_REGULAR_URL = 'https://fonts.gstatic.com/s/roboto/v30/KFOmCnqEu92Fr1Me5Q.ttf';
+        const ROBOTO_BOLD_URL = 'https://fonts.gstatic.com/s/roboto/v30/KFOlCnqEu92Fr1MmWUlvAw.ttf';
+
+        let robotoRegularBase64 = null;
+        let robotoBoldBase64 = null;
+
+        // Load fonts on page load
+        (async () => {
+            try {
+                const [regular, bold] = await Promise.all([
+                    fetchFontAsBase64(ROBOTO_REGULAR_URL),
+                    fetchFontAsBase64(ROBOTO_BOLD_URL),
+                ]);
+                robotoRegularBase64 = regular;
+                robotoBoldBase64 = bold;
+
+                document.getElementById('generateBtn').disabled = false;
+                document.getElementById('generateBtn').textContent = 'Generate PDF';
+                document.getElementById('status').textContent = 'Fonts loaded. Ready to generate PDF.';
+
+                // Also load the font in the browser so the preview looks correct
+                const regularFace = new FontFace('Roboto', `url(${ROBOTO_REGULAR_URL})`, { weight: '400' });
+                const boldFace = new FontFace('Roboto', `url(${ROBOTO_BOLD_URL})`, { weight: '700' });
+                await Promise.all([regularFace.load(), boldFace.load()]);
+                document.fonts.add(regularFace);
+                document.fonts.add(boldFace);
+            } catch (err) {
+                document.getElementById('status').textContent =
+                    'Failed to load fonts: ' + err.message;
+                console.error('Font loading error:', err);
+            }
+        })();
+
+        window.generatePdf = async function () {
+            if (!robotoRegularBase64) {
+                alert('Fonts not loaded yet.');
+                return;
+            }
+
+            const contentElement = document.getElementById('content');
+            document.getElementById('status').textContent = 'Generating PDF...';
+
+            try {
+                const blob = await htmlToPdf(contentElement, {
+                    fonts: [
+                        { family: 'Roboto', src: robotoRegularBase64 },
+                        { family: 'Roboto', src: robotoBoldBase64, style: 'bold' },
+                    ],
+                });
+
+                // Download the PDF
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = 'custom-fonts.pdf';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+
+                document.getElementById('status').textContent = 'PDF generated and downloaded!';
+            } catch (error) {
+                console.error('Error generating PDF:', error);
+                document.getElementById('status').textContent = 'Error: ' + error.message;
+            }
+        };
+    </script>
+</body>
+</html>

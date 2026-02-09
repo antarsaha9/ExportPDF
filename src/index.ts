@@ -1,6 +1,7 @@
 import { jsPDF } from 'jspdf';
 import { fromHTML } from './fromHTML';
-import { FromHTMLSettings, Margins } from './types';
+import { FromHTMLSettings, Margins, FontDefinition } from './types';
+import { registerCustomFonts, clearCustomFonts } from './utils/fonts';
 
 /** Default page margin in jsPDF units (mm by default) */
 const DEFAULT_MARGIN = 10;
@@ -28,11 +29,27 @@ export async function htmlToPdf(
     margin?: number | { top?: number; bottom?: number; left?: number; right?: number };
     /** @deprecated Use `margin` instead. Kept for backward compatibility. */
     margins?: Margins;
+    /** Custom fonts to embed in the PDF. Each entry registers a .ttf font with jsPDF. */
+    fonts?: FontDefinition[];
   }
 ): Promise<Blob> {
   return new Promise((resolve, reject) => {
     try {
       const doc = new jsPDF();
+
+      // Register custom fonts with jsPDF
+      if (options?.fonts?.length) {
+        const fontMap: Record<string, string> = {};
+        for (const font of options.fonts) {
+          const pdfFontName = font.family.toLowerCase().replace(/\s+/g, '-');
+          const style = font.style || 'normal';
+          const filename = `${pdfFontName}-${style}.ttf`;
+          doc.addFileToVFS(filename, font.src);
+          doc.addFont(filename, pdfFontName, style);
+          fontMap[font.family.toLowerCase()] = pdfFontName;
+        }
+        registerCustomFonts(fontMap);
+      }
 
       // Resolve margins: options.margin > options.margins > defaults
       let top = DEFAULT_MARGIN;
@@ -70,12 +87,14 @@ export async function htmlToPdf(
           width,
         },
         () => {
+          clearCustomFonts();
           const blob = doc.output('blob');
           resolve(blob);
         },
         { top, bottom, left, right }
       );
     } catch (error) {
+      clearCustomFonts();
       reject(error);
     }
   });
@@ -85,7 +104,7 @@ export async function htmlToPdf(
 export { fromHTML };
 
 // Export types
-export type { FromHTMLSettings, Margins, ElementHandlers, ElementHandler } from './types';
+export type { FromHTMLSettings, Margins, FontDefinition, ElementHandlers, ElementHandler } from './types';
 
 // Export Renderer for advanced usage
 export { Renderer } from './renderer/Renderer';

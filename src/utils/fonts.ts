@@ -12,6 +12,29 @@ const FontNameDB: Record<string, string> = {
 };
 
 /**
+ * Custom font name mappings registered at runtime.
+ * Checked before FontNameDB so custom fonts take priority.
+ */
+const customFontDB: Record<string, string> = {};
+
+/**
+ * Registers custom font name mappings (CSS name → jsPDF font name).
+ * Call before rendering; call clearCustomFonts() after.
+ */
+export function registerCustomFonts(mapping: Record<string, string>): void {
+  Object.assign(customFontDB, mapping);
+}
+
+/**
+ * Clears all custom font mappings.
+ */
+export function clearCustomFonts(): void {
+  for (const key in customFontDB) {
+    delete customFontDB[key];
+  }
+}
+
+/**
  * Font weight mapping
  */
 const FontWeightMap: Record<string | number, string> = {
@@ -56,7 +79,13 @@ export function resolveFont(cssFontFamily: string): string {
     if (!firstCustom && trimmed) {
       firstCustom = trimmed;
     }
-    const name = FontNameDB[trimmed.toLowerCase()];
+    const lower = trimmed.toLowerCase();
+    // Check custom fonts first (registered via registerCustomFonts)
+    const custom = customFontDB[lower];
+    if (custom) {
+      return custom;
+    }
+    const name = FontNameDB[lower];
     if (name) {
       return name;
     }

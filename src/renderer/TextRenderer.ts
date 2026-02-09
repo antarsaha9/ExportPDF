@@ -47,25 +47,16 @@ export function splitFragmentsIntoLines(
     if (fragment) {
       ff = style!['font-family'];
       fs = style!['font-style'];
-      fontMetrics = fontMetricsCache[ff + fs];
 
-      if (!fontMetrics) {
-        const font = (pdf.internal as any).getFont(ff, fs);
-        fontMetrics = font.metadata?.Unicode || font.metadata;
-        fontMetricsCache[ff + fs] = fontMetrics;
-      }
+      const fontSize = style!['font-size'] * DEFAULT_FONT_SIZE;
 
-      fragmentSpecificMetrics = {
-        widths: fontMetrics.widths,
-        kerning: fontMetrics.kerning,
-        fontSize: style!['font-size'] * DEFAULT_FONT_SIZE,
-        textIndent: currentLineLength,
-      };
+      // Set the active font so jsPDF uses its own metrics (works for both
+      // built-in and custom TTF fonts).
+      pdf.setFont(ff!, fs!);
+      pdf.setFontSize(fontSize);
 
       fragmentLength =
-        (pdf.getStringUnitWidth(fragment, fragmentSpecificMetrics) *
-          fragmentSpecificMetrics.fontSize) /
-        k;
+        (pdf.getStringUnitWidth(fragment) * fontSize) / k;
 
       if (fragment === '\u2028') {
         // Line break

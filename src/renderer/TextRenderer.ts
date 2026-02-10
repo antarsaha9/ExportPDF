@@ -26,12 +26,9 @@ export function splitFragmentsIntoLines(
   maxLineLength: number
 ): TextLine[] {
   const k = pdf.internal.scaleFactor;
-  const fontMetricsCache: Record<string, any> = {};
   let ff: string | undefined;
   let fs: string | undefined;
-  let fontMetrics: any;
   let fragment: string | undefined;
-  let fragmentSpecificMetrics: any;
   let fragmentLength: number;
   let fragmentChopped: string[];
   let style: ParsedCSS | undefined;
@@ -64,12 +61,8 @@ export function splitFragmentsIntoLines(
         lines.push(line);
         currentLineLength = 0;
       } else if (currentLineLength + fragmentLength > maxLineLength) {
-        // Need to split fragment
-        fragmentChopped = pdf.splitTextToSize(
-          fragment,
-          maxLineLength,
-          fragmentSpecificMetrics
-        );
+        // Need to split fragment (font is already set above)
+        fragmentChopped = pdf.splitTextToSize(fragment, maxLineLength);
         line.push([fragmentChopped.shift()!, style!]);
         while (fragmentChopped.length) {
           line = [[fragmentChopped.shift()!, style!]];
@@ -78,9 +71,7 @@ export function splitFragmentsIntoLines(
         if (line.length > 0) {
           const lastFragment = line[0][0];
           currentLineLength =
-            (pdf.getStringUnitWidth(lastFragment, fragmentSpecificMetrics) *
-              fragmentSpecificMetrics.fontSize) /
-            k;
+            (pdf.getStringUnitWidth(lastFragment) * fontSize) / k;
         } else {
           currentLineLength = 0;
         }
@@ -103,24 +94,16 @@ export function splitFragmentsIntoLines(
         // Calculate total line width
         const firstFragment = lineFragments[0];
         const firstStyle = firstFragment[1];
-        ff = firstStyle['font-family'];
-        fs = firstStyle['font-style'];
-        fontMetrics = fontMetricsCache[ff + fs] || (pdf.internal as any).getFont(ff, fs).metadata?.Unicode;
-
-        fragmentSpecificMetrics = {
-          widths: fontMetrics.widths,
-          kerning: fontMetrics.kerning,
-          fontSize: firstStyle['font-size'] * DEFAULT_FONT_SIZE,
-        };
+        const alignFontSize = firstStyle['font-size'] * DEFAULT_FONT_SIZE;
+        pdf.setFont(firstStyle['font-family'], firstStyle['font-style']);
+        pdf.setFontSize(alignFontSize);
 
         let lineText = '';
         for (const frag of lineFragments) {
           lineText += frag[0];
         }
         const length =
-          (pdf.getStringUnitWidth(lineText, fragmentSpecificMetrics) *
-            fragmentSpecificMetrics.fontSize) /
-          k;
+          (pdf.getStringUnitWidth(lineText) * alignFontSize) / k;
         const space = maxLineLength - length;
 
         // Clone style if needed
@@ -206,11 +189,20 @@ export function renderTextFragment(
 
   // Render text
   if (internal.write) {
+    // Identity-H (custom TTF) fonts need hex-encoded glyph IDs;
+    // standard fonts use simple pdfEscape.
+    let encodedText: string;
+    if (font.encoding === 'Identity-H') {
+      const hex = (pdf as any).pdfEscape16(text, font);
+      encodedText = '<' + hex + '> Tj';
+    } else {
+      encodedText = '(' + (pdf.internal as any).pdfEscape(text, {}) + ') Tj';
+    }
     internal.write(
       '/' + font.id,
       (defaultFontSize * style['font-size']).toFixed(2),
       'Tf',
-      '(' + (pdf.internal as any).pdfEscape(text, {}) + ') Tj'
+      encodedText
     );
   } else {
     pdf.setFont(style['font-family'], style['font-style']);

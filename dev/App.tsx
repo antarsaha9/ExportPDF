@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { htmlToPdf, FontDefinition } from '../src/index';
+import { htmlToPdf, woffToTtf, FontDefinition } from '../src/index';
 import './App.css';
 
 interface LoadedFont {
@@ -31,6 +31,15 @@ function fileToBase64(file: File): Promise<string> {
     reader.onerror = reject;
     reader.readAsDataURL(file);
   });
+}
+
+function arrayBufferToBase64(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer);
+  let binary = '';
+  for (let i = 0; i < bytes.length; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary);
 }
 
 const ROBOTO_REGULAR_URL = 'https://fonts.gstatic.com/s/roboto/v30/KFOmCnqEu92Fr1Me5Q.ttf';
@@ -117,13 +126,25 @@ function App() {
     setFontLoading(true);
     try {
       for (const file of Array.from(files)) {
-        if (!file.name.endsWith('.ttf')) {
-          alert(`Skipped "${file.name}" — only .ttf files are supported.`);
+        const isWoff = file.name.toLowerCase().endsWith('.woff');
+        const isTtf = file.name.toLowerCase().endsWith('.ttf');
+        if (!isTtf && !isWoff) {
+          alert(`Skipped "${file.name}" — only .ttf and .woff files are supported.`);
           continue;
         }
-        const base64 = await fileToBase64(file);
+
+        let base64: string;
+        if (isWoff) {
+          // Convert WOFF → TTF, then to base64
+          const woffBuffer = await file.arrayBuffer();
+          const ttfBuffer = await woffToTtf(woffBuffer);
+          base64 = arrayBufferToBase64(ttfBuffer);
+        } else {
+          base64 = await fileToBase64(file);
+        }
+
         // Derive family name from filename (e.g. "OpenSans-Bold.ttf" → "OpenSans")
-        const baseName = file.name.replace(/\.ttf$/i, '');
+        const baseName = file.name.replace(/\.(ttf|woff)$/i, '');
         const lowerName = baseName.toLowerCase();
         let style: LoadedFont['style'] = 'normal';
         let family = baseName;
@@ -250,11 +271,11 @@ function App() {
               {fontLoading ? 'Loading...' : 'Load Roboto (Google Fonts)'}
             </button>
             <label className="upload-btn">
-              Upload .ttf
+              Upload .ttf / .woff
               <input
                 ref={fileInputRef}
                 type="file"
-                accept=".ttf"
+                accept=".ttf,.woff"
                 multiple
                 onChange={handleFontUpload}
                 hidden

@@ -108,3 +108,6 @@ export type { FromHTMLSettings, Margins, FontDefinition, ElementHandlers, Elemen
 
 // Export Renderer for advanced usage
 export { Renderer } from './renderer/Renderer';
+
+// Export font utilities
+export { woffToTtf } from './utils/woff';

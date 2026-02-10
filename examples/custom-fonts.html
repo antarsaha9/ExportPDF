@@ -46,11 +46,61 @@
             color: #555;
             font-style: italic;
         }
+        .section {
+            margin-bottom: 24px;
+        }
+        .upload-row {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        .upload-row label {
+            background-color: #8e44ad;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        .upload-row label:hover {
+            background-color: #7d3c98;
+        }
+        #woff-status {
+            color: #555;
+            font-style: italic;
+            margin-top: 4px;
+        }
     </style>
 </head>
 <body>
     <h1>Custom Fonts Example</h1>
-    <p>This example loads the <strong>Roboto</strong> font from Google Fonts and embeds it into the PDF.</p>
+
+    <!-- Section 1: TTF from Google Fonts -->
+    <div class="section">
+        <h2>1. Load TTF from Google Fonts</h2>
+        <p>Fetches <strong>Roboto</strong> as .ttf directly from Google Fonts and passes it to <code>htmlToPdf()</code>.</p>
+        <button id="generateBtn" onclick="generatePdf()" disabled>Loading font...</button>
+    </div>
+
+    <!-- Section 2: Upload a .woff file -->
+    <div class="section">
+        <h2>2. Upload a .woff font</h2>
+        <p>
+            jsPDF only supports TTF. The library provides <code>woffToTtf()</code> to convert
+            WOFF files at runtime before embedding.
+        </p>
+        <div class="upload-row">
+            <label>
+                Choose .woff file
+                <input type="file" id="woffInput" accept=".woff" hidden />
+            </label>
+            <button id="generateWoffBtn" onclick="generatePdfWithWoff()" disabled>
+                Generate PDF with uploaded font
+            </button>
+        </div>
+        <div id="woff-status"></div>
+    </div>
 
     <div id="content">
         <h2 class="roboto">Heading in Roboto</h2>
@@ -59,16 +109,20 @@
         <p>This paragraph has no explicit font, so it falls back to the default PDF font.</p>
     </div>
 
-    <button id="generateBtn" onclick="generatePdf()" disabled>Loading font...</button>
     <div id="status">Fetching Roboto font from Google Fonts...</div>
 
     <script type="module">
-        import { htmlToPdf } from '../dist/index.js';
+        import { htmlToPdf, woffToTtf } from '../dist/index.js';
 
-        // Helper: fetch a font file and return its base64 representation
+        // ── Helpers ──────────────────────────────────────────────────
+
         async function fetchFontAsBase64(url) {
             const response = await fetch(url);
             const buffer = await response.arrayBuffer();
+            return arrayBufferToBase64(buffer);
+        }
+
+        function arrayBufferToBase64(buffer) {
             const bytes = new Uint8Array(buffer);
             let binary = '';
             for (let i = 0; i < bytes.length; i++) {
@@ -77,14 +131,14 @@
             return btoa(binary);
         }
 
-        // Google Fonts direct .ttf URLs for Roboto
+        // ── Section 1: TTF from Google Fonts ─────────────────────────
+
         const ROBOTO_REGULAR_URL = 'https://fonts.gstatic.com/s/roboto/v30/KFOmCnqEu92Fr1Me5Q.ttf';
         const ROBOTO_BOLD_URL = 'https://fonts.gstatic.com/s/roboto/v30/KFOlCnqEu92Fr1MmWUlvAw.ttf';
 
         let robotoRegularBase64 = null;
         let robotoBoldBase64 = null;
 
-        // Load fonts on page load
         (async () => {
             try {
                 const [regular, bold] = await Promise.all([
@@ -95,10 +149,9 @@
                 robotoBoldBase64 = bold;
 
                 document.getElementById('generateBtn').disabled = false;
-                document.getElementById('generateBtn').textContent = 'Generate PDF';
-                document.getElementById('status').textContent = 'Fonts loaded. Ready to generate PDF.';
+                document.getElementById('generateBtn').textContent = 'Generate PDF (Roboto TTF)';
+                document.getElementById('status').textContent = 'Roboto loaded. Ready to generate PDF.';
 
-                // Also load the font in the browser so the preview looks correct
                 const regularFace = new FontFace('Roboto', `url(${ROBOTO_REGULAR_URL})`, { weight: '400' });
                 const boldFace = new FontFace('Roboto', `url(${ROBOTO_BOLD_URL})`, { weight: '700' });
                 await Promise.all([regularFace.load(), boldFace.load()]);
@@ -116,7 +169,6 @@
                 alert('Fonts not loaded yet.');
                 return;
             }
-
             const contentElement = document.getElementById('content');
             document.getElementById('status').textContent = 'Generating PDF...';
 
@@ -127,23 +179,86 @@
                         { family: 'Roboto', src: robotoBoldBase64, style: 'bold' },
                     ],
                 });
-
-                // Download the PDF
-                const url = URL.createObjectURL(blob);
-                const link = document.createElement('a');
-                link.href = url;
-                link.download = 'custom-fonts.pdf';
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-                URL.revokeObjectURL(url);
-
-                document.getElementById('status').textContent = 'PDF generated and downloaded!';
+                downloadBlob(blob, 'custom-fonts-ttf.pdf');
+                document.getElementById('status').textContent = 'PDF generated!';
             } catch (error) {
                 console.error('Error generating PDF:', error);
                 document.getElementById('status').textContent = 'Error: ' + error.message;
             }
         };
+
+        // ── Section 2: WOFF upload + conversion ──────────────────────
+
+        let woffFontBase64 = null;
+        let woffFontFamily = null;
+
+        document.getElementById('woffInput').addEventListener('change', async (e) => {
+            const file = e.target.files?.[0];
+            if (!file) return;
+
+            const statusEl = document.getElementById('woff-status');
+            statusEl.textContent = `Converting "${file.name}" from WOFF to TTF...`;
+
+            try {
+                // 1. Read the .woff file
+                const woffBuffer = await file.arrayBuffer();
+
+                // 2. Convert WOFF → TTF using the library utility
+                const ttfBuffer = await woffToTtf(woffBuffer);
+
+                // 3. Encode as base64 (what htmlToPdf expects)
+                woffFontBase64 = arrayBufferToBase64(ttfBuffer);
+
+                // Derive family name from filename
+                woffFontFamily = file.name
+                    .replace(/\.woff$/i, '')
+                    .replace(/[-_]?(regular|bold|italic|bolditalic)/i, '')
+                    || file.name.replace(/\.woff$/i, '');
+
+                document.getElementById('generateWoffBtn').disabled = false;
+                statusEl.textContent =
+                    `Converted! Family: "${woffFontFamily}" — click "Generate PDF" to test.`;
+            } catch (err) {
+                console.error('WOFF conversion error:', err);
+                statusEl.textContent = 'Conversion failed: ' + err.message;
+            }
+        });
+
+        window.generatePdfWithWoff = async function () {
+            if (!woffFontBase64) {
+                alert('Upload a .woff file first.');
+                return;
+            }
+            const contentElement = document.getElementById('content');
+            const statusEl = document.getElementById('woff-status');
+            statusEl.textContent = 'Generating PDF with uploaded font...';
+
+            try {
+                const blob = await htmlToPdf(contentElement, {
+                    fonts: [
+                        { family: woffFontFamily, src: woffFontBase64 },
+                    ],
+                });
+                downloadBlob(blob, 'custom-fonts-woff.pdf');
+                statusEl.textContent = 'PDF generated with WOFF-converted font!';
+            } catch (error) {
+                console.error('Error generating PDF:', error);
+                statusEl.textContent = 'Error: ' + error.message;
+            }
+        };
+
+        // ── Download helper ──────────────────────────────────────────
+
+        function downloadBlob(blob, filename) {
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = filename;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+        }
     </script>
 </body>
 </html>
